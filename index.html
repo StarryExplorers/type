@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TouchTyping — Single File</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa;--green:#34d399;--danger:#fb7185}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071021 0%, #02111b 100%);color:#e6eef6}
+    .app{max-width:980px;margin:28px auto;padding:20px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.04));box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    h1{font-size:20px;margin:0}
+    .controls{display:flex;gap:10px;align-items:center}
+    input[type=text],textarea{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:inherit}
+    textarea{min-width:360px;min-height:44px;resize:vertical}
+    .btn{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;color:#042029;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .main{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:16px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.012),rgba(0,0,0,0.04));padding:14px;border-radius:10px}
+    .words{height:160px;overflow:auto;padding:10px;border-radius:8px;border:1px dashed rgba(255,255,255,0.03);line-height:1.9;letter-spacing:0.4px}
+    .word{padding:2px 4px;border-radius:6px;margin-right:6px;display:inline-block}
+    .word.current{background:rgba(96,165,250,0.12);outline:1px solid rgba(96,165,250,0.08)}
+    .char{display:inline-block}
+    .char.error{color:var(--danger);text-decoration:underline}
+    .stats{display:flex;flex-direction:column;gap:8px}
+    .stat-row{display:flex;justify-content:space-between;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    .keyboard{margin-top:12px;background:rgba(255,255,255,0.01);padding:10px;border-radius:8px}
+    .key-row{display:flex;gap:6px;justify-content:center;margin-bottom:6px}
+    .key{min-width:34px;padding:8px 6px;border-radius:6px;text-align:center;background:rgba(255,255,255,0.02);user-select:none}
+    .key.wide{min-width:80px}
+    .key.active{background:linear-gradient(90deg,var(--accent),#3b82f6);color:#02121e;font-weight:700;transform:translateY(-2px);box-shadow:0 8px 18px rgba(2,6,23,0.45)}
+    footer{margin-top:12px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px}
+    label{font-size:13px;color:var(--muted)}
+    .small{font-size:12px;color:var(--muted)}
+    /* responsive */
+    @media (max-width:900px){.main{grid-template-columns:1fr}.controls{flex-wrap:wrap}textarea{min-width:260px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>TouchTyping — HTML / CSS / JS</h1>
+        <div class="small">Paste a <strong>comma-separated</strong> word list (no spaces) or use the preset. Then set duration and press Start.</div>
+      </div>
+      <div class="controls">
+        <label class="small">Duration (s)</label>
+        <input id="duration" type="number" min="10" value="60" style="width:76px" />
+        <button id="startBtn" class="btn">Start</button>
+        <button id="resetBtn" class="btn ghost">Reset</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="card">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div style="flex:1">
+            <label class="small">Word list (comma separated, no spaces)</label>
+            <textarea id="wordInput">cat,dog,fish,hat,run,bat,hop,man,pen,sun,top,log,pig,rat,cup</textarea>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+              <button id="applyList" class="btn ghost">Apply list</button>
+              <div class="small">Words parsed: <span id="count">0</span></div>
+            </div>
+          </div>
+          <div style="width:240px;margin-left:6px">
+            <div class="stats">
+              <div class="stat-row"><div>Time</div><div id="time">60</div></div>
+              <div class="stat-row"><div>WPM</div><div id="wpm">0</div></div>
+              <div class="stat-row"><div>Accuracy</div><div id="acc">0%</div></div>
+              <div class="stat-row"><div>Typed</div><div id="typed">0</div></div>
+              <div class="stat-row"><div>Mistakes</div><div id="mistakes">0</div></div>
+              <div class="stat-row"><div>Best</div><div id="best">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+
+        <div class="words" id="words"></div>
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <input id="typeInput" type="text" placeholder="Focus here and start typing (test starts on first key)" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04)" />
+          <button id="focusBtn" class="btn ghost">Focus</button>
+        </div>
+
+        <div class="keyboard" id="keyboard"></div>
+      </section>
+
+      <aside class="card">
+        <div style="font-weight:700;margin-bottom:8px">How it works</div>
+        <div class="small" style="margin-bottom:10px">Words are displayed with a highlighted current word. Type characters — mistakes are underlined. The timer starts on your first keystroke. WPM = correct chars / 5 / minutes.</div>
+        <div style="margin-top:6px"><button id="downloadBtn" class="btn">Download results</button></div>
+        <div style="margin-top:14px;font-size:13px;color:var(--muted)">Tip: paste your custom list without spaces: <code>apple,banana,pear,kiwi</code></div>
+      </aside>
+    </div>
+
+    <footer>
+      <div class="small">Local best saved in your browser (localStorage).</div>
+      <div class="small">Made for practicing touch-typing.</div>
+    </footer>
+  </div>
+
+  <script>
+    // --- state ---
+    const wordInput = document.getElementById('wordInput');
+    const applyList = document.getElementById('applyList');
+    const wordsEl = document.getElementById('words');
+    const countEl = document.getElementById('count');
+    const typeInput = document.getElementById('typeInput');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const focusBtn = document.getElementById('focusBtn');
+    const timeEl = document.getElementById('time');
+    const wpmEl = document.getElementById('wpm');
+    const accEl = document.getElementById('acc');
+    const typedEl = document.getElementById('typed');
+    const mistakesEl = document.getElementById('mistakes');
+    const bestEl = document.getElementById('best');
+    const durationEl = document.getElementById('duration');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const keyboardEl = document.getElementById('keyboard');
+
+    let lesson = [];
+    let currentWord = 0;
+    let charIndex = 0;
+
+    let started = false;
+    let timer = null;
+    let timeLeft = Number(durationEl.value) || 60;
+    let duration = Number(durationEl.value) || 60;
+
+    let typed = 0;
+    let mistakes = 0;
+    let correctChars = 0;
+
+    // load best
+    let best = JSON.parse(localStorage.getItem('tt_best') || 'null');
+    if (best) bestEl.textContent = best.wpm + ' wpm • ' + best.acc + '%'; else bestEl.textContent = '—';
+
+    function parseList(raw) {
+      if (!raw) return [];
+      // Split on commas and remove empty entries
+      return raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+    function buildLesson(words){
+      const pool = [];
+      // repeat until large enough
+      while (pool.length < 200) pool.push(...words);
+      return pool.slice(0,200);
+    }
+
+    function renderWords(){
+      wordsEl.innerHTML = '';
+      lesson.forEach((w,i)=>{
+        const span = document.createElement('span');
+        span.className = 'word' + (i===currentWord? ' current':'');
+        // render chars
+        for(let j=0;j<w.length;j++){
+          const c = document.createElement('span');
+          c.className = 'char';
+          c.textContent = w[j];
+          span.appendChild(c);
+        }
+        wordsEl.appendChild(span);
+        if(i<lesson.length-1){const sep = document.createTextNode(' '); wordsEl.appendChild(sep)}
+      })
+      // scroll current into view
+      const cur = wordsEl.querySelector('.word.current');
+      if(cur) cur.scrollIntoView({block:'nearest',inline:'center'});
+      countEl.textContent = lesson.length;
+    }
+
+    function reset(){
+      clearInterval(timer);
+      started=false;
+      duration = Number(durationEl.value) || 60;
+      timeLeft = duration;
+      timeEl.textContent = timeLeft;
+      currentWord=0; charIndex=0; typed=0; mistakes=0; correctChars=0;
+      typedEl.textContent = typed; mistakesEl.textContent = mistakes; wpmEl.textContent = 0; accEl.textContent = '0%';
+      renderWords();
+      typeInput.value='';
+    }
+
+    function start(){
+      if(started) return;
+      started=true;
+      duration = Number(durationEl.value) || 60;
+      timeLeft = duration;
+      timeEl.textContent = timeLeft;
+      timer = setInterval(()=>{
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if(timeLeft<=0){finish();}
+      },1000);
+    }
+
+    function finish(){
+      clearInterval(timer);
+      started=false;
+      const minutes = (duration - timeLeft)/60 || 1/60;
+      const wpm = Math.round((correctChars/5)/minutes) || 0;
+      const acc = typed>0? Math.round(((typed-mistakes)/typed)*100):0;
+      wpmEl.textContent = wpm; accEl.textContent = acc + '%';
+      // save best
+      let prev = JSON.parse(localStorage.getItem('tt_best')||'null');
+      if(!prev || wpm>prev.wpm || (wpm===prev.wpm && acc>prev.acc)){
+        const obj = {wpm,acc}; localStorage.setItem('tt_best',JSON.stringify(obj)); bestEl.textContent = wpm + ' wpm • ' + acc + '%';
+      }
+    }
+
+    // keyboard UI
+    const rows = [
+      ['`','1','2','3','4','5','6','7','8','9','0','-','='],
+      ['Tab','q','w','e','r','t','y','u','i','o','p','[',']','\\'],
+      ['Caps','a','s','d','f','g','h','j','k','l',';','\'' ,'Enter'],
+      ['Shift','z','x','c','v','b','n','m',',','.','/','Shift'],
+      ['Ctrl','Win','Alt','Space','Alt','Win','Menu','Ctrl']
+    ];
+    function buildKeyboard(){
+      keyboardEl.innerHTML='';
+      rows.forEach(r=>{
+        const row = document.createElement('div'); row.className='key-row';
+        r.forEach(k=>{
+          const el = document.createElement('div'); el.className='key';
+          if(k.length>1) el.classList.add('wide');
+          if(k==='Space'){el.classList.add('wide'); el.style.minWidth='220px'; el.dataset.key=' '}
+          el.textContent = k;
+          // normalize dataset: use lowercase for letters
+          el.dataset.key = (k==='Space')? ' ' : k.toLowerCase();
+          row.appendChild(el);
+        })
+        keyboardEl.appendChild(row);
+      })
+    }
+
+    function highlightKey(key){
+      if(!key) return;
+      const norm = key.toLowerCase();
+      const keys = keyboardEl.querySelectorAll('.key');
+      keys.forEach(k=>{ if(k.dataset.key===norm) k.classList.add('active'); else k.classList.remove('active'); });
+      // also clear after short delay
+      setTimeout(()=>{ keys.forEach(k=>k.classList.remove('active')); },120);
+    }
+
+    // typing logic
+    typeInput.addEventListener('keydown', (e)=>{
+      // start timer on first real key
+      if(!started && e.key.length===1) start();
+      highlightKey(e.key);
+
+      // ignore special navigation keys
+      if(e.key === 'Backspace'){
+        // allow user to correct current character: adjust indices
+        if(charIndex>0){ charIndex--; typed--; typedEl.textContent=typed; }
+        e.preventDefault();
+        // visual correction: remove last typed char's error mark
+        const curWordEl = wordsEl.querySelector('.word.current');
+        if(curWordEl){ const chars = curWordEl.querySelectorAll('.char'); if(chars[charIndex]) chars[charIndex].classList.remove('error'); }
+        return;
+      }
+
+      if(e.key.length!==1 && e.key!==' ') return; // ignore other keys
+
+      // handle normal character
+      e.preventDefault();
+      const ch = e.key; // keep case as typed
+      const expectedWord = lesson[currentWord] || '';
+      const expectedChar = expectedWord[charIndex] || '';
+      typed++;
+      typedEl.textContent = typed;
+      // compare case-insensitively
+      if(ch.toLowerCase() === expectedChar?.toLowerCase()){
+        // correct
+        correctChars++;
+        const curWordEl = wordsEl.querySelector('.word.current');
+        if(curWordEl){ const chars = curWordEl.querySelectorAll('.char'); if(chars[charIndex]) chars[charIndex].classList.remove('error'); chars[charIndex].classList.add(''); }
+        charIndex++;
+        // finished this word?
+        if(charIndex >= expectedWord.length){
+          // if user types a space or just finished, move to next
+          currentWord++; charIndex=0;
+          renderWords();
+        } else {
+          // highlight progress visually by underlining correct chars (optional)
+        }
+      } else {
+        // mistake
+        mistakes++; mistakesEl.textContent = mistakes;
+        // mark char as error
+        const curWordEl = wordsEl.querySelector('.word.current');
+        if(curWordEl){ const chars = curWordEl.querySelectorAll('.char'); if(chars[charIndex]) chars[charIndex].classList.add('error'); }
+        charIndex++;
+        // allow user to continue even if wrong
+        if(charIndex >= expectedWord.length){ currentWord++; charIndex=0; renderWords(); }
+      }
+
+      // update live stats
+      const elapsed = (duration - timeLeft)/60 || 1/60;
+      const wpm = Math.round((correctChars/5)/elapsed) || 0;
+      const acc = typed>0? Math.round(((typed-mistakes)/typed)*100):0;
+      wpmEl.textContent = wpm; accEl.textContent = acc + '%';
+    })
+
+    // global key highlight
+    window.addEventListener('keydown', (e)=>{
+      highlightKey(e.key);
+    })
+
+    applyList.addEventListener('click', ()=>{
+      const arr = parseList(wordInput.value);
+      lesson = buildLesson(arr);
+      reset();
+    })
+
+    startBtn.addEventListener('click', ()=>{
+      reset(); start(); typeInput.focus();
+    })
+    resetBtn.addEventListener('click', ()=> reset());
+    focusBtn.addEventListener('click', ()=> typeInput.focus());
+
+    durationEl.addEventListener('change', ()=>{ duration = Number(durationEl.value)||60; timeLeft = duration; timeEl.textContent = timeLeft; });
+
+    downloadBtn.addEventListener('click', ()=>{
+      const elapsed = (duration - timeLeft)/60 || 1/60;
+      const wpm = Math.round((correctChars/5)/elapsed) || 0;
+      const acc = typed>0? Math.round(((typed-mistakes)/typed)*100):0;
+      const data = {date:new Date().toISOString(),wpm,acc,typed,mistakes,duration};
+      const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'typing-result.json'; document.body.appendChild(a); a.click(); a.remove();
+    })
+
+    // init
+    buildKeyboard();
+    lesson = buildLesson(parseList(wordInput.value));
+    reset();
+    renderWords();
+  </script>
+</body>
+</html>
